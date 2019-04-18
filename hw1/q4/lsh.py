@@ -6,12 +6,14 @@ import time
 import pdb
 import unittest
 from PIL import Image
+import matplotlib.pyplot as plt
 
 # Finds the L1 distance between two vectors
 # u and v are 1-dimensional np.array objects
 # TODO: Implement this
 def l1(u, v):
-    raise NotImplementedError
+    return np.linalg.norm(np.subtract(u,v), 1)
+    # raise NotImplementedError
 
 # Loads the data into a np array, where each row corresponds to
 # an image patch -- this step is sort of slow.
@@ -93,14 +95,89 @@ def plot(A, row_nums, base_filename):
         im.save(base_filename + "-" + str(row_num) + ".png")
 
 # Finds the nearest neighbors to a given vector, using linear search.
-def linear_search(A, query_index, num_neighbors):
-    raise NotImplementedError #TODO
+def linear_search(A, query_index, num_neighbors = 10):
+    distances = map(lambda r: (r, l1(A[r], A[query_index])), range(len(A)))
+    best_neighbors = sorted(distances, key=lambda t: t[1])[1:num_neighbors+1]
+
+    return [t[0] for t in best_neighbors]
+
+    # raise NotImplementedError #TODO
 
 # TODO: Write a function that computes the error measure
+def error_measure(A, k=24, L=10):
+
+    functions, hashed_A = lsh_setup(A, k, L)
+
+    error = 0
+    for query_index in range(100, 1100, 100):
+        best_neighbors_lsh = lsh_search(A, hashed_A, functions, query_index, 3)
+        best_neighbors_linear = linear_search(A, query_index, 3)
+        d_lsh = 0   
+        d_linear =0
+        for i in best_neighbors_lsh: d_lsh += l1(A[query_index], A[i])
+        for i in best_neighbors_linear: d_linear += l1(A[query_index], A[i])
+        error += d_lsh / d_linear
+    return error/10
+
+# Compute the average times of LSH and linear search
+def average_time(A, k=24, L=10):
+    functions, hashed_A = lsh_setup(A, k, L)
+
+    best_neighbors_lsh = []
+    best_neighbors_linear = []
+    time_lsh = 0
+    time_linear = 0
+    for query_index in range(100, 1100, 100):
+        start_time = time.time()
+        best_neighbors_lsh.append(lsh_search(A, hashed_A, functions, query_index, 3))
+        time_lsh += time.time() - start_time
+
+        start_time = time.time()
+        best_neighbors_linear.append(linear_search(A, query_index, 3))
+        time_linear += time.time() - start_time
+
+    print('The average search time for LSH search is', time_lsh / 10)
+    print('The average search time for linear search is', time_linear / 10)
+
+# Plot the error value vs L and k
+def plot_error(A):
+    error_values_L = [] 
+    error_values_k = []
+    for L in range(10, 22, 2):
+        error_values_L.append(error_measure(A, L=L))
+    for k in range(16, 26, 2):
+        error_values_k.append(error_measure(A, k=k))
+
+    plt.figure(figsize=(15,6))
+    plt.subplot(121)
+    plt.plot(range(10,22,2), error_values_L, 'ro-')
+    plt.xlabel('L')
+    plt.ylabel('error value')
+    plt.title('k=24')
+    plt.subplot(122)
+    plt.plot(range(16,26,2), error_values_k, 'bo-')
+    plt.xlabel('k')
+    plt.ylabel('error value')
+    plt.title('L=10')
+    plt.savefig('error_values.png')
+
+# Plot the 10 nearest neighbors
+def plot_near_neighbors(A):
+    functions, hashed_A = lsh_setup(A)
+    best_neigbors_lsh = lsh_search(A, hashed_A, functions, 100, 10)
+    best_neigbors_linear = linear_search(A, 100, 10)
+    plot(A, best_neigbors_lsh, 'lsh')
+    plot(A, best_neigbors_linear, 'linear')
+    plot(A, [100], 'patch')
+
 
 # TODO: Solve Problem 4
 def problem4():
-    raise NotImplementedError
+    A = load_data('data/patches.csv')
+    average_time(A)
+    plot_error(A)
+    plot_near_neighbors(A)
+    # raise NotImplementedError
 
 #### TESTS #####
 
